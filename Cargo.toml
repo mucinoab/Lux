@@ -1,0 +1,12 @@
+[package]
+name = "lux"
+version = "0.1.0"
+authors = ["Bruno A. Muciño <mucinoab@gmail.com>"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+peekmore = "1.0.0"
+
+[profile.dev]
+debug = false
