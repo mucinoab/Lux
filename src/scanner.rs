@@ -4,9 +4,9 @@ use crate::{
     Error,
 };
 
-use peekmore::{PeekMore, PeekMoreIterator};
-
 use std::{str::Chars, str::FromStr};
+
+use peekmore::{PeekMore, PeekMoreIterator};
 
 pub struct Scanner<'s> {
     source_raw: &'s str,
@@ -66,7 +66,7 @@ impl<'s> Scanner<'s> {
 
                         return Ok(());
                     }
-
+                    // TODO comment blocks: /* ... */
                     TokenType::Slash
                 }
 
@@ -108,7 +108,7 @@ impl<'s> Scanner<'s> {
                     }
                 }
 
-                // Kkip whitespace
+                // Skip whitespace
                 ' ' | '\r' | '\t' => {
                     return Ok(());
                 }

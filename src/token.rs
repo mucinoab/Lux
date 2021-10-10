@@ -1,4 +1,6 @@
-#[derive(Debug, Clone)]
+use core::fmt;
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     /// Single character tokens
     LeftParen,
@@ -49,11 +51,11 @@ pub enum TokenType {
     Eof,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Token {
-    _type: TokenType,
-    lexeme: String,
-    line: usize,
+    pub _type: TokenType,
+    pub lexeme: String,
+    pub line: usize,
 }
 
 impl Token {
@@ -63,5 +65,20 @@ impl Token {
             lexeme,
             line,
         }
+    }
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let token = match self._type {
+            TokenType::Minus => "-",
+            TokenType::Plus => "+",
+            TokenType::Slash => "/",
+            TokenType::Star => "*",
+            TokenType::Bang => "!",
+            _ => "TODO",
+        };
+
+        write!(f, "{}", token)
     }
 }

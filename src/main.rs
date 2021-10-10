@@ -1,8 +1,12 @@
 mod errors;
+mod expr;
+mod parser;
 mod scanner;
 mod token;
 
-use crate::scanner::*;
+use parser::Parser;
+
+use crate::{expr::print_ast, scanner::*};
 
 use std::{
     env,
@@ -30,9 +34,10 @@ fn run(source: &str) -> Result<(), Error> {
     let mut scanner = Scanner::new(source);
     let tokens = scanner.scan_tokens()?;
 
-    for token in tokens {
-        dbg!(token);
-    }
+    let mut parser = Parser::new(tokens);
+    let expr = parser.parse()?;
+
+    println!("{}", print_ast(&expr));
 
     Ok(())
 }
@@ -63,5 +68,34 @@ fn run_prompt() -> Result<(), Error> {
 
             Err(e) => return Err(Box::new(e)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        expr::{print_ast, Expr, Value},
+        token::{Token, TokenType},
+    };
+
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+
+    #[test]
+    fn prints_ast() {
+        let e: Expr = Expr::Binary {
+            lhs: Box::new(Expr::Unary {
+                operator: Token::new(TokenType::Minus, "-".into(), 1),
+                rhs: Box::new(Expr::Literal(Value::Number(123.0))),
+            }),
+            tkn: Token::new(TokenType::Star, "*".into(), 1),
+            rhs: Box::new(Expr::Grouping(Box::new(Expr::Literal(Value::Number(
+                45.67,
+            ))))),
+        };
+
+        assert!("(*(-123)(group45.67))" == print_ast(&e));
     }
 }
