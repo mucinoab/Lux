@@ -1,7 +1,6 @@
 use crate::{
-    errors::error,
+    errors::CompileError,
     token::{Token, TokenType},
-    Error,
 };
 
 use std::{str::Chars, str::FromStr};
@@ -34,6 +33,7 @@ impl<'s> Scanner<'s> {
     pub fn advance(&mut self) -> Option<char> {
         self.current += 1;
         self.column += 1;
+
         self.source.next()
     }
 
@@ -41,7 +41,7 @@ impl<'s> Scanner<'s> {
         self.source.peek()
     }
 
-    fn scan_token(&mut self) -> Result<(), Error> {
+    fn scan_token(&mut self) -> Result<(), CompileError> {
         if let Some(c) = self.advance() {
             let token = match c {
                 '(' => TokenType::LeftParen,
@@ -122,8 +122,7 @@ impl<'s> Scanner<'s> {
 
                 // Strings
                 '"' => {
-                    self.string();
-                    return Ok(());
+                    return self.string();
                 }
 
                 // Numbers
@@ -132,18 +131,15 @@ impl<'s> Scanner<'s> {
                 }
 
                 _ => {
-                    // TODO
-                    // Figure out errors
-                    // keep scanning?
-                    // report in batch, no one by one char
-
                     if c.is_alphabetic() {
                         self.identifier();
                         return Ok(());
                     } else {
-                        dbg!(c);
-                        error(self.line, "Unexpected character.");
-                        return Err(Box::new(std::fmt::Error));
+                        return Err(CompileError::Scannner(
+                            self.start,
+                            self.current,
+                            "Unexpected char",
+                        ));
                     }
                 }
             };
@@ -154,25 +150,44 @@ impl<'s> Scanner<'s> {
         Ok(())
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, Error> {
+    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, Vec<CompileError>> {
+        let mut errors = Vec::new();
+
         while self.peek().is_some() {
             self.start = self.current;
-            self.scan_token()?;
+            if let Err(e) = self.scan_token() {
+                errors.push(e);
+            }
         }
 
-        self.tokens
-            .push(Token::new(TokenType::Eof, String::new(), 0));
+        self.tokens.push(Token::new(
+            TokenType::Eof,
+            String::new(),
+            (self.start, self.current),
+            self.line,
+            self.column,
+        ));
 
-        Ok(self.tokens.clone())
+        if errors.is_empty() {
+            Ok(self.tokens.clone())
+        } else {
+            Err(errors)
+        }
     }
 
     fn add_token(&mut self, token: TokenType) {
         let text = self.source_raw[self.start..self.current].into();
-        self.tokens.push(Token::new(token, text, self.line));
+        self.tokens.push(Token::new(
+            token,
+            text,
+            (self.start, self.current),
+            self.line,
+            self.column,
+        ));
     }
 
-    fn string(&mut self) {
-        while self.peek() != Some(&'"') {
+    fn string(&mut self) -> Result<(), CompileError> {
+        while self.peek().is_some() && self.peek() != Some(&'"') {
             if self.peek() == Some(&'\n') {
                 self.line += 1;
                 self.column = 0;
@@ -182,19 +197,23 @@ impl<'s> Scanner<'s> {
         }
 
         if self.peek().is_none() {
-            error(self.line, "Unterminated string.");
-            return;
+            return Err(CompileError::Scannner(
+                self.start,
+                self.current,
+                "Unterminated string",
+            ));
         }
 
         // The closing "
         self.advance();
 
         let value = self.source_raw[self.start + 1..self.current - 1].into();
-
         self.add_token(TokenType::String(value));
+
+        Ok(())
     }
 
-    fn number(&mut self) -> Result<(), Error> {
+    fn number(&mut self) -> Result<(), CompileError> {
         // TODO repetitive code
         while let Some(c) = self.peek() {
             if c.is_numeric() {
@@ -216,11 +235,18 @@ impl<'s> Scanner<'s> {
             }
         }
 
-        let n = f64::from_str(&self.source_raw[self.start..self.current])?;
+        match f64::from_str(&self.source_raw[self.start..self.current]) {
+            Ok(n) => {
+                self.add_token(TokenType::Number(n));
 
-        self.add_token(TokenType::Number(n));
-
-        Ok(())
+                Ok(())
+            }
+            Err(_) => Err(CompileError::Scannner(
+                self.start,
+                self.current,
+                "Not a number",
+            )),
+        }
     }
 
     fn identifier(&mut self) {

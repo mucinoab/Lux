@@ -1,8 +1,10 @@
 use crate::{
+    errors::CompileError,
     expr::{BExpr, Expr, Value},
     token::{Token, TokenType},
-    Error,
 };
+
+pub type CompResult = Result<BExpr, CompileError>;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -14,9 +16,8 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> Result<BExpr, Error> {
-        // TODO bubble up errors
-        Ok(self.expression())
+    pub fn parse(&mut self) -> CompResult {
+        self.expression()
     }
 
     // Movments
@@ -64,26 +65,26 @@ impl Parser {
 
     // Rules
 
-    fn expression(&mut self) -> BExpr {
+    fn expression(&mut self) -> CompResult {
         self.equality()
     }
 
-    fn equality(&mut self) -> BExpr {
-        let mut expr = self.comparasion();
+    fn equality(&mut self) -> CompResult {
+        let mut expr = self.comparasion()?;
 
         while self.matches(&[TokenType::BangEqual, TokenType::EqualEqual]) {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
                 tkn: self.previous().clone(),
-                rhs: self.comparasion(),
+                rhs: self.comparasion()?,
             });
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn comparasion(&mut self) -> BExpr {
-        let mut expr = self.term();
+    fn comparasion(&mut self) -> CompResult {
+        let mut expr = self.term()?;
 
         while self.matches(&[
             TokenType::Greater,
@@ -94,95 +95,98 @@ impl Parser {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
                 tkn: self.previous().clone(),
-                rhs: self.term(),
+                rhs: self.term()?,
             });
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn term(&mut self) -> BExpr {
-        let mut expr = self.factor();
+    fn term(&mut self) -> CompResult {
+        let mut expr = self.factor()?;
 
         while self.matches(&[TokenType::Minus, TokenType::Plus]) {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
                 tkn: self.previous().clone(),
-                rhs: self.factor(),
+                rhs: self.factor()?,
             });
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn factor(&mut self) -> BExpr {
-        let mut expr = self.unary();
+    fn factor(&mut self) -> CompResult {
+        let mut expr = self.unary()?;
 
         while self.matches(&[TokenType::Slash, TokenType::Star]) {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
                 tkn: self.previous().clone(),
-                rhs: self.unary(),
+                rhs: self.unary()?,
             });
         }
 
-        expr
+        Ok(expr)
     }
 
-    fn unary(&mut self) -> BExpr {
+    fn unary(&mut self) -> CompResult {
         if self.matches(&[TokenType::Bang, TokenType::Minus]) {
-            return Box::new(Expr::Unary {
+            return Ok(Box::new(Expr::Unary {
                 operator: self.previous().clone(),
-                rhs: self.unary(),
-            });
+                rhs: self.unary()?,
+            }));
         }
 
         self.primary()
     }
 
-    fn primary(&mut self) -> BExpr {
+    fn primary(&mut self) -> CompResult {
         if self.matches(&[TokenType::False]) {
-            return Box::new(Expr::Literal(Value::Boolean(true)));
+            return Ok(Box::new(Expr::Literal(Value::Boolean(true))));
         }
 
         if self.matches(&[TokenType::True]) {
-            return Box::new(Expr::Literal(Value::Boolean(false)));
+            return Ok(Box::new(Expr::Literal(Value::Boolean(false))));
         }
 
         if self.matches(&[TokenType::Nil]) {
-            return Box::new(Expr::Literal(Value::Nil));
+            return Ok(Box::new(Expr::Literal(Value::Nil)));
         }
 
         if self.matches(&[TokenType::LeftParen]) {
-            let expr = self.expression();
-            self.consume(TokenType::RightParen, "Expect ')' after expression.");
+            let expr = self.expression()?;
+            self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
 
-            return Box::new(Expr::Grouping(expr));
+            return Ok(Box::new(Expr::Grouping(expr)));
         }
 
-        let expr = match &self.peek()._type {
+        let tkn = self.peek();
+
+        let expr = match &tkn._type {
             TokenType::String(s) => Box::new(Expr::Literal(Value::String(s.to_owned()))),
             TokenType::Number(n) => Box::new(Expr::Literal(Value::Number(*n))),
             _ => {
-                // TODO proper error handling
-                dbg!(self.peek());
-                unreachable!()
+                return Err(CompileError::Parser(
+                    tkn.place.0,
+                    tkn.place.1,
+                    "Unexpected token while parsing",
+                ));
             }
         };
 
         self.advance();
-        expr
+        Ok(expr)
     }
 
-    fn consume(&mut self, tkn: TokenType, error_msg: &str) -> &Token {
+    fn consume(&mut self, tkn: TokenType, error_msg: &'static str) -> Result<&Token, CompileError> {
         if self.check(&tkn) {
-            return self.advance();
+            Ok(self.advance())
+        } else {
+            //https://craftinginterpreters.com/parsing-expressions.html#entering-panic-mode
+            let tkn = self.peek();
+            Err(CompileError::Parser(tkn.place.0, tkn.place.1, error_msg))
         }
-
-        // TODO proper error
-        //https://craftinginterpreters.com/parsing-expressions.html#entering-panic-mode
-        panic!("{}", error_msg);
-        //Err(Box::new(std::fmt::Error))
     }
 
     /// https://craftinginterpreters.com/parsing-expressions.html#entering-panic-mode

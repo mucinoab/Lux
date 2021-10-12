@@ -55,15 +55,25 @@ pub enum TokenType {
 pub struct Token {
     pub _type: TokenType,
     pub lexeme: String,
+    pub place: (usize, usize),
     pub line: usize,
+    pub column: usize,
 }
 
 impl Token {
-    pub fn new(_type: TokenType, lexeme: String, line: usize) -> Self {
+    pub fn new(
+        _type: TokenType,
+        lexeme: String,
+        place: (usize, usize),
+        line: usize,
+        column: usize,
+    ) -> Self {
         Self {
             _type,
             lexeme,
+            place,
             line,
+            column,
         }
     }
 }

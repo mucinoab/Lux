@@ -4,11 +4,10 @@ mod parser;
 mod scanner;
 mod token;
 
-use parser::Parser;
-
-use crate::{expr::print_ast, scanner::*};
+use crate::{errors::error, expr::print_ast, parser::Parser, scanner::*};
 
 use std::{
+    cmp::Ordering,
     env,
     fs::read_to_string,
     io::{self, stdout, Write},
@@ -19,32 +18,37 @@ type Error = Box<dyn std::error::Error>;
 fn main() -> Result<(), Error> {
     let args: Vec<_> = env::args().into_iter().collect();
 
-    if args.len() > 2 {
-        todo!();
-    } else if args.len() == 2 {
-        run_file(&args[0])?;
-    } else {
-        run_prompt()?;
+    match args.len().cmp(&2) {
+        Ordering::Greater => todo!(),
+        Ordering::Less => run_prompt()?,
+        Ordering::Equal => run_file(&args[1])?,
     }
 
     Ok(())
 }
 
-fn run(source: &str) -> Result<(), Error> {
+fn run(file_name: &str, source: &str) -> Result<(), Error> {
     let mut scanner = Scanner::new(source);
-    let tokens = scanner.scan_tokens()?;
 
-    let mut parser = Parser::new(tokens);
-    let expr = parser.parse()?;
+    match scanner.scan_tokens() {
+        Ok(tokens) => {
+            let mut parser = Parser::new(tokens);
 
-    println!("{}", print_ast(&expr));
+            match parser.parse() {
+                Ok(expr) => println!("{}", print_ast(&expr)),
+                Err(e) => error(file_name, source, &[e]),
+            }
+        }
+
+        Err(errors) => error(file_name, source, &errors),
+    }
 
     Ok(())
 }
 
 fn run_file(file: &str) -> Result<(), Error> {
     let source = read_to_string(file)?;
-    run(&source)?;
+    run(file, &source)?;
 
     Ok(())
 }
@@ -61,7 +65,7 @@ fn run_prompt() -> Result<(), Error> {
                 if line.is_empty() {
                     return Ok(());
                 } else {
-                    run(&line)?;
+                    run("repl", &line)?;
                     line.clear();
                 }
             }
