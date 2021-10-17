@@ -86,6 +86,10 @@ impl fmt::Display for Token {
             TokenType::Slash => "/",
             TokenType::Star => "*",
             TokenType::Bang => "!",
+            TokenType::Greater => ">",
+            TokenType::GreaterEqual => ">=",
+            TokenType::Less => "<",
+            TokenType::LessEqual => "<=",
             _ => "TODO",
         };
 

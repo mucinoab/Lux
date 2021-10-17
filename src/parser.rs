@@ -75,7 +75,7 @@ impl Parser {
         while self.matches(&[TokenType::BangEqual, TokenType::EqualEqual]) {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
-                tkn: self.previous().clone(),
+                op: self.previous().clone(),
                 rhs: self.comparasion()?,
             });
         }
@@ -94,7 +94,7 @@ impl Parser {
         ]) {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
-                tkn: self.previous().clone(),
+                op: self.previous().clone(),
                 rhs: self.term()?,
             });
         }
@@ -108,7 +108,7 @@ impl Parser {
         while self.matches(&[TokenType::Minus, TokenType::Plus]) {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
-                tkn: self.previous().clone(),
+                op: self.previous().clone(),
                 rhs: self.factor()?,
             });
         }
@@ -122,7 +122,7 @@ impl Parser {
         while self.matches(&[TokenType::Slash, TokenType::Star]) {
             expr = Box::new(Expr::Binary {
                 lhs: expr,
-                tkn: self.previous().clone(),
+                op: self.previous().clone(),
                 rhs: self.unary()?,
             });
         }
@@ -133,7 +133,7 @@ impl Parser {
     fn unary(&mut self) -> CompResult {
         if self.matches(&[TokenType::Bang, TokenType::Minus]) {
             return Ok(Box::new(Expr::Unary {
-                operator: self.previous().clone(),
+                op: self.previous().clone(),
                 rhs: self.unary()?,
             }));
         }
@@ -143,11 +143,11 @@ impl Parser {
 
     fn primary(&mut self) -> CompResult {
         if self.matches(&[TokenType::False]) {
-            return Ok(Box::new(Expr::Literal(Value::Boolean(true))));
+            return Ok(Box::new(Expr::Literal(Value::Boolean(false))));
         }
 
         if self.matches(&[TokenType::True]) {
-            return Ok(Box::new(Expr::Literal(Value::Boolean(false))));
+            return Ok(Box::new(Expr::Literal(Value::Boolean(true))));
         }
 
         if self.matches(&[TokenType::Nil]) {

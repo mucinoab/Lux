@@ -1,10 +1,11 @@
 mod errors;
 mod expr;
+mod interpreter;
 mod parser;
 mod scanner;
 mod token;
 
-use crate::{errors::error, expr::print_ast, parser::Parser, scanner::*};
+use crate::{errors::error, expr::print_ast, interpreter::Interpreter, parser::Parser, scanner::*};
 
 use std::{
     cmp::Ordering,
@@ -35,7 +36,13 @@ fn run(file_name: &str, source: &str) -> Result<(), Error> {
             let mut parser = Parser::new(tokens);
 
             match parser.parse() {
-                Ok(expr) => println!("{}", print_ast(&expr)),
+                Ok(expr) => {
+                    println!("{}", print_ast(&expr));
+
+                    if let Err(e) = Interpreter::interpret(*expr) {
+                        error(file_name, source, &[e]);
+                    }
+                }
                 Err(e) => error(file_name, source, &[e]),
             }
         }
@@ -47,6 +54,7 @@ fn run(file_name: &str, source: &str) -> Result<(), Error> {
 }
 
 fn run_file(file: &str) -> Result<(), Error> {
+    // TODO report errors
     let source = read_to_string(file)?;
     run(file, &source)?;
 
@@ -77,29 +85,18 @@ fn run_prompt() -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        expr::{print_ast, Expr, Value},
-        token::{Token, TokenType},
-    };
+    use crate::expr::Value;
 
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+    fn add() {
+        let lhs = Value::Number(1.0);
+        let rhs = Value::Number(2.0);
 
-    #[test]
-    fn prints_ast() {
-        let e: Expr = Expr::Binary {
-            lhs: Box::new(Expr::Unary {
-                operator: Token::new(TokenType::Minus, "-".into(), 1),
-                rhs: Box::new(Expr::Literal(Value::Number(123.0))),
-            }),
-            tkn: Token::new(TokenType::Star, "*".into(), 1),
-            rhs: Box::new(Expr::Grouping(Box::new(Expr::Literal(Value::Number(
-                45.67,
-            ))))),
-        };
+        assert_eq!(lhs.add(rhs).unwrap(), Value::Number(3.0));
 
-        assert!("(*(-123)(group45.67))" == print_ast(&e));
+        let lhs = Value::String(String::from("a"));
+        let rhs = Value::String(String::from("b"));
+
+        assert_eq!(lhs.add(rhs).unwrap(), Value::String(String::from("ab")));
     }
 }
