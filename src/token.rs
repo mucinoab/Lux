@@ -81,16 +81,16 @@ impl Token {
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let token = match self._type {
-            TokenType::Minus => "-",
-            TokenType::Plus => "+",
-            TokenType::Slash => "/",
-            TokenType::Star => "*",
-            TokenType::Bang => "!",
-            TokenType::Greater => ">",
-            TokenType::GreaterEqual => ">=",
-            TokenType::Less => "<",
-            TokenType::LessEqual => "<=",
-            _ => "TODO",
+            TokenType::Minus => '-',
+            TokenType::Plus => '+',
+            TokenType::Slash => '/',
+            TokenType::Star => '*',
+            TokenType::Bang => '!',
+            TokenType::Greater => '>',
+            TokenType::GreaterEqual => '≥',
+            TokenType::Less => '<',
+            TokenType::LessEqual => '≤',
+            _ => '�',
         };
 
         write!(f, "{}", token)
