@@ -5,15 +5,17 @@ use crate::{errors::CompileError, token::Token};
 // TODO name
 pub type BExpr = Box<Expr>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Binary { lhs: BExpr, op: Token, rhs: BExpr },
     Unary { op: Token, rhs: BExpr },
     Literal(Value),
     Grouping(BExpr),
+    Variable(Token),
+    Assign(Token, BExpr),
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     String(String),
     Number(f64),
@@ -33,6 +35,7 @@ impl Value {
     pub fn neg(self) -> Result<Value, CompileError> {
         let val = match self {
             Value::Number(v) => Value::Number(-v),
+            // TODO auto cast numbers?
             Value::String(s) => match s.parse::<f64>() {
                 Ok(v) => Value::Number(-v),
                 Err(_) => return Err(CompileError::Interpreter(0, 0, "Not a number")),
@@ -125,25 +128,26 @@ impl Display for Value {
     }
 }
 
-pub fn print_ast(expr: &Expr) -> String {
+pub fn _print_ast(expr: &Expr) -> String {
     match expr {
-        Expr::Binary { lhs, op, rhs } => parenthesize(&format!("{}", op), &[lhs, rhs]),
-        Expr::Unary { op, rhs } => parenthesize(&format!("{}", op), &[rhs]),
+        Expr::Binary { lhs, op, rhs } => _parenthesize(&format!("{}", op), &[lhs, rhs]),
+        Expr::Unary { op, rhs } => _parenthesize(&format!("{}", op), &[rhs]),
         Expr::Literal(value) => match value {
             Value::String(v) => v.to_owned(),
             Value::Number(v) => v.to_string(),
             Value::Boolean(v) => v.to_string(),
             Value::Nil => String::from("nil"),
         },
-        Expr::Grouping(e) => parenthesize("group", &[e]),
+        Expr::Grouping(e) => _parenthesize("group", &[e]),
+        _ => todo!(),
     }
 }
 
-fn parenthesize(name: &str, exprs: &[&Expr]) -> String {
+fn _parenthesize(name: &str, exprs: &[&Expr]) -> String {
     let mut result = format!("({}", name);
 
     for expr in exprs {
-        result.push_str(&print_ast(expr));
+        result.push_str(&_print_ast(expr));
     }
 
     result.push(')');

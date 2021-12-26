@@ -1,6 +1,7 @@
 use crate::{
     errors::CompileError,
     expr::{BExpr, Expr, Value},
+    statements::Statement,
     token::{Token, TokenType},
 };
 
@@ -16,8 +17,14 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
-    pub fn parse(&mut self) -> CompResult {
-        self.expression()
+    pub fn parse(&mut self) -> Result<Vec<Statement>, CompileError> {
+        let mut statements = Vec::new();
+
+        while !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        Ok(statements)
     }
 
     // Movments
@@ -66,7 +73,7 @@ impl Parser {
     // Rules
 
     fn expression(&mut self) -> CompResult {
-        self.equality()
+        self.assignment()
     }
 
     fn equality(&mut self) -> CompResult {
@@ -142,6 +149,7 @@ impl Parser {
     }
 
     fn primary(&mut self) -> CompResult {
+        // TODO Tidy up this
         if self.matches(&[TokenType::False]) {
             return Ok(Box::new(Expr::Literal(Value::Boolean(false))));
         }
@@ -159,6 +167,10 @@ impl Parser {
             self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
 
             return Ok(Box::new(Expr::Grouping(expr)));
+        }
+
+        if self.matches(&[TokenType::Identifier]) {
+            return Ok(Box::new(Expr::Variable(self.previous().clone())));
         }
 
         let tkn = self.peek();
@@ -189,8 +201,8 @@ impl Parser {
         }
     }
 
-    /// https://craftinginterpreters.com/parsing-expressions.html#entering-panic-mode
-    fn _synchronize(&mut self) {
+    fn synchronize(&mut self) {
+        // https://craftinginterpreters.com/parsing-expressions.html#entering-panic-mode
         self.advance();
 
         while !self.is_at_end() {
@@ -212,5 +224,73 @@ impl Parser {
 
             self.advance();
         }
+    }
+
+    fn statement(&mut self) -> Result<Statement, CompileError> {
+        // TODO refactor to avoid repetitive code
+        if self.matches(&[TokenType::Print]) {
+            let value = self.expression()?;
+            self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+
+            Ok(Statement::Print(*value))
+        } else {
+            let value = self.expression()?;
+            self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+
+            Ok(Statement::Expresion(*value))
+        }
+    }
+
+    fn declaration(&mut self) -> Result<Statement, CompileError> {
+        if self.matches(&[TokenType::Var]) {
+            return match self.var_declaration() {
+                Ok(s) => Ok(s),
+                Err(_) => {
+                    self.synchronize();
+                    Err(CompileError::Parser(0, 0, "TODO"))
+                }
+            };
+        }
+
+        self.statement()
+    }
+
+    fn var_declaration(&mut self) -> Result<Statement, CompileError> {
+        let name = self
+            .consume(TokenType::Identifier, "Expect variable name.")?
+            .clone();
+
+        let mut value = Expr::Literal(Value::Nil);
+
+        if self.matches(&[TokenType::Equal]) {
+            value = *self.expression()?;
+        }
+
+        self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+
+        Ok(Statement::Var(name, value))
+    }
+
+    fn assignment(&mut self) -> Result<BExpr, CompileError> {
+        let expr = self.equality()?;
+
+        if self.matches(&[TokenType::Equal]) {
+            let value = self.assignment()?;
+
+            if let Expr::Variable(v) = *expr {
+                return Ok(Box::new(Expr::Assign(v, value)));
+            }
+
+            let equals = self.previous();
+
+            return Err(CompileError::Parser(
+                // TODO ?
+                equals.place.0,
+                equals.place.1,
+                "Invalid assignment target",
+            ));
+        }
+
+        Ok(expr)
     }
 }

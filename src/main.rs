@@ -1,11 +1,13 @@
+mod environment;
 mod errors;
 mod expr;
 mod interpreter;
 mod parser;
 mod scanner;
+mod statements;
 mod token;
 
-use crate::{errors::error, expr::print_ast, interpreter::Interpreter, parser::Parser, scanner::*};
+use crate::{errors::error, interpreter::Interpreter, parser::Parser, scanner::*};
 
 use std::{
     cmp::Ordering,
@@ -17,7 +19,7 @@ use std::{
 type Error = Box<dyn std::error::Error>;
 
 fn main() -> Result<(), Error> {
-    let args: Vec<_> = env::args().into_iter().collect();
+    let args: Vec<_> = env::args().collect();
 
     match args.len().cmp(&2) {
         Ordering::Greater => todo!(),
@@ -30,6 +32,7 @@ fn main() -> Result<(), Error> {
 
 fn run(file_name: &str, source: &str) -> Result<(), Error> {
     let mut scanner = Scanner::new(source);
+    let mut interpreter = Interpreter::default();
 
     match scanner.scan_tokens() {
         Ok(tokens) => {
@@ -37,9 +40,7 @@ fn run(file_name: &str, source: &str) -> Result<(), Error> {
 
             match parser.parse() {
                 Ok(expr) => {
-                    println!("{}", print_ast(&expr));
-
-                    if let Err(e) = Interpreter::interpret(*expr) {
+                    if let Err(e) = interpreter.interpret(expr) {
                         error(file_name, source, &[e]);
                     }
                 }
@@ -56,9 +57,7 @@ fn run(file_name: &str, source: &str) -> Result<(), Error> {
 fn run_file(file: &str) -> Result<(), Error> {
     // TODO report errors
     let source = read_to_string(file)?;
-    run(file, &source)?;
-
-    Ok(())
+    run(file, &source)
 }
 
 fn run_prompt() -> Result<(), Error> {
@@ -70,12 +69,9 @@ fn run_prompt() -> Result<(), Error> {
 
         match io::stdin().read_line(&mut line) {
             Ok(_) => {
-                if line.is_empty() {
-                    return Ok(());
-                } else {
-                    run("repl", &line)?;
-                    line.clear();
-                }
+                // TODO does not keep the environment per repl session
+                run("repl", &line)?;
+                line.clear();
             }
 
             Err(e) => return Err(Box::new(e)),
@@ -98,5 +94,18 @@ mod tests {
         let rhs = Value::String(String::from("b"));
 
         assert_eq!(lhs.add(rhs).unwrap(), Value::String(String::from("ab")));
+    }
+
+    #[test]
+    fn print() {
+        let source = r#"print 1+2+3+4+4; print "hola + 2"; print true;"#;
+
+        assert!(crate::run("repl", source).is_ok());
+    }
+
+    #[test]
+    fn print_variable() {
+        let source = r#"print 1+2+3+4+4; var drink = "tea"; print drink; print "hola + 2";"#;
+        assert!(crate::run("repl", source).is_ok());
     }
 }
