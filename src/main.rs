@@ -40,7 +40,7 @@ fn run(file_name: &str, source: &str) -> Result<(), Error> {
 
             match parser.parse() {
                 Ok(expr) => {
-                    if let Err(e) = interpreter.interpret(expr) {
+                    if let Err(e) = interpreter.interpret(&expr) {
                         error(file_name, source, &[e]);
                     }
                 }

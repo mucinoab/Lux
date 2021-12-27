@@ -80,11 +80,35 @@ impl Parser {
         let mut expr = self.comparasion()?;
 
         while self.matches(&[TokenType::BangEqual, TokenType::EqualEqual]) {
-            expr = Box::new(Expr::Binary {
-                lhs: expr,
-                op: self.previous().clone(),
-                rhs: self.comparasion()?,
-            });
+            expr = Box::new(Expr::Binary(
+                expr,
+                self.previous().clone(),
+                self.comparasion()?,
+            ));
+        }
+
+        Ok(expr)
+    }
+
+    fn or(&mut self) -> CompResult {
+        let mut expr = self.and()?;
+
+        while self.matches(&[TokenType::Or]) {
+            let op = self.previous().clone();
+            let rhs = self.and()?;
+            expr = Box::new(Expr::Logical(expr, op, rhs));
+        }
+
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> CompResult {
+        let mut expr = self.equality()?;
+
+        while self.matches(&[TokenType::And]) {
+            let op = self.previous().clone();
+            let rhs = self.equality()?;
+            expr = Box::new(Expr::Logical(expr, op, rhs));
         }
 
         Ok(expr)
@@ -99,11 +123,7 @@ impl Parser {
             TokenType::Less,
             TokenType::LessEqual,
         ]) {
-            expr = Box::new(Expr::Binary {
-                lhs: expr,
-                op: self.previous().clone(),
-                rhs: self.term()?,
-            });
+            expr = Box::new(Expr::Binary(expr, self.previous().clone(), self.term()?));
         }
 
         Ok(expr)
@@ -113,11 +133,7 @@ impl Parser {
         let mut expr = self.factor()?;
 
         while self.matches(&[TokenType::Minus, TokenType::Plus]) {
-            expr = Box::new(Expr::Binary {
-                lhs: expr,
-                op: self.previous().clone(),
-                rhs: self.factor()?,
-            });
+            expr = Box::new(Expr::Binary(expr, self.previous().clone(), self.factor()?));
         }
 
         Ok(expr)
@@ -127,11 +143,7 @@ impl Parser {
         let mut expr = self.unary()?;
 
         while self.matches(&[TokenType::Slash, TokenType::Star]) {
-            expr = Box::new(Expr::Binary {
-                lhs: expr,
-                op: self.previous().clone(),
-                rhs: self.unary()?,
-            });
+            expr = Box::new(Expr::Binary(expr, self.previous().clone(), self.unary()?));
         }
 
         Ok(expr)
@@ -139,10 +151,10 @@ impl Parser {
 
     fn unary(&mut self) -> CompResult {
         if self.matches(&[TokenType::Bang, TokenType::Minus]) {
-            return Ok(Box::new(Expr::Unary {
-                op: self.previous().clone(),
-                rhs: self.unary()?,
-            }));
+            return Ok(Box::new(Expr::Unary(
+                self.previous().clone(),
+                self.unary()?,
+            )));
         }
 
         self.primary()
@@ -233,8 +245,13 @@ impl Parser {
             self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
 
             Ok(Statement::Print(*value))
+        } else if self.matches(&[TokenType::While]) {
+            let (condition, body) = self.while_statement()?;
+            Ok(Statement::While(*condition, Box::new(body)))
         } else if self.matches(&[TokenType::LeftBrace]) {
             Ok(Statement::Block(self.block()?))
+        } else if self.matches(&[TokenType::If]) {
+            Ok(self.if_statement()?)
         } else {
             let value = self.expression()?;
             self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
@@ -274,7 +291,7 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<BExpr, CompileError> {
-        let expr = self.equality()?;
+        let expr = self.or()?;
 
         if self.matches(&[TokenType::Equal]) {
             let value = self.assignment()?;
@@ -306,5 +323,28 @@ impl Parser {
         self.consume(TokenType::RightBrace, "Expect '}' after block.")?;
 
         Ok(statements)
+    }
+
+    fn if_statement(&mut self) -> Result<Statement, CompileError> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'if'.")?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen, "Expect ')' after if condition")?;
+
+        let then_branch = Box::new(self.statement()?);
+        let else_branch = if self.matches(&[TokenType::Else]) {
+            Some(Box::new(self.statement()?))
+        } else {
+            None
+        };
+
+        Ok(Statement::If(*condition, then_branch, else_branch))
+    }
+
+    fn while_statement(&mut self) -> Result<(BExpr, Statement), CompileError> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
+        let condition = self.expression()?;
+        self.consume(TokenType::RightParen, "Expect ')' after if condition")?;
+
+        Ok((condition, self.statement()?))
     }
 }

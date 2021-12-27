@@ -7,8 +7,9 @@ pub type BExpr = Box<Expr>;
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Binary { lhs: BExpr, op: Token, rhs: BExpr },
-    Unary { op: Token, rhs: BExpr },
+    Binary(BExpr, Token, BExpr),
+    Logical(BExpr, Token, BExpr),
+    Unary(Token, BExpr),
     Literal(Value),
     Grouping(BExpr),
     Variable(Token),
@@ -130,8 +131,8 @@ impl Display for Value {
 
 pub fn _print_ast(expr: &Expr) -> String {
     match expr {
-        Expr::Binary { lhs, op, rhs } => _parenthesize(&format!("{}", op), &[lhs, rhs]),
-        Expr::Unary { op, rhs } => _parenthesize(&format!("{}", op), &[rhs]),
+        Expr::Binary(lhs, op, rhs) => _parenthesize(&format!("{}", op), &[lhs, rhs]),
+        Expr::Unary(op, rhs) => _parenthesize(&format!("{}", op), &[rhs]),
         Expr::Literal(value) => match value {
             Value::String(v) => v.to_owned(),
             Value::Number(v) => v.to_string(),

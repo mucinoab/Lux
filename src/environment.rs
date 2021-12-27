@@ -2,7 +2,7 @@ use crate::{errors::CompileError, expr::Value, token::Token};
 
 use std::collections::HashMap;
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Environment {
     // TODO try making this a <&str, Value>
     values: HashMap<String, Value>,
