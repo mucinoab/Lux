@@ -33,7 +33,9 @@ pub fn report(file_name: &str, source: &str, errors: &[CompileError]) {
                 .with_message(*msg)
                 .with_labels(vec![Label::primary((), *l..*r).with_message("here")]),
 
-            CompileError::Interpreter(_, _, msg) => Diagnostic::error().with_message(*msg),
+            CompileError::Interpreter(l, r, msg) => Diagnostic::error()
+                .with_message(*msg)
+                .with_labels(vec![Label::primary((), *l..*r)]),
         };
 
         term::emit(&mut writer.lock(), &Config::default(), &file, &diagnostic).unwrap();

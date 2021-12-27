@@ -233,6 +233,8 @@ impl Parser {
             self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
 
             Ok(Statement::Print(*value))
+        } else if self.matches(&[TokenType::LeftBrace]) {
+            Ok(Statement::Block(self.block()?))
         } else {
             let value = self.expression()?;
             self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
@@ -292,5 +294,17 @@ impl Parser {
         }
 
         Ok(expr)
+    }
+
+    fn block(&mut self) -> Result<Vec<Statement>, CompileError> {
+        let mut statements = Vec::new();
+
+        while !self.check(&TokenType::RightBrace) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+
+        self.consume(TokenType::RightBrace, "Expect '}' after block.")?;
+
+        Ok(statements)
     }
 }

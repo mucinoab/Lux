@@ -6,7 +6,9 @@ use crate::{
     token::TokenType,
 };
 
-#[derive(Default)]
+use std::mem::replace;
+
+#[derive(Default, Clone)]
 pub struct Interpreter {
     environment: Environment,
 }
@@ -54,7 +56,7 @@ impl Interpreter {
             Expr::Variable(name) => self.environment.get(&name)?,
             Expr::Assign(name, expr) => {
                 let value = self.evaluate(*expr)?;
-                self.environment.assign(&name.lexeme, value.clone())?;
+                self.environment.assign(&name, value.clone())?;
 
                 value
             }
@@ -70,24 +72,40 @@ impl Interpreter {
                 Statement::Expresion(expr) => self.expresion_statement(expr)?,
                 Statement::Var(token, expr) => {
                     let value = self.evaluate(expr)?;
-                    self.environment.define(&token.lexeme, value)
+                    self.environment.define(&token, value)
                 }
+                Statement::Block(statements) => self.execute_block(
+                    statements,
+                    Environment::new_with_enclosing(self.environment.clone()),
+                )?,
             }
         }
 
         Ok(())
     }
 
-    pub fn expresion_statement(&mut self, s: Expr) -> Result<(), CompileError> {
+    fn expresion_statement(&mut self, s: Expr) -> Result<(), CompileError> {
         self.evaluate(s)?;
 
         Ok(())
     }
 
-    pub fn print_statement(&mut self, s: Expr) -> Result<(), CompileError> {
+    fn print_statement(&mut self, s: Expr) -> Result<(), CompileError> {
         let v = self.evaluate(s)?;
         println!("{}", v);
         // TODO flush buffer?
+
+        Ok(())
+    }
+
+    fn execute_block(
+        &mut self,
+        statements: Vec<Statement>,
+        env: Environment,
+    ) -> Result<(), CompileError> {
+        let previous = replace(&mut self.environment, env);
+        self.interpret(statements)?;
+        self.environment = previous;
 
         Ok(())
     }
