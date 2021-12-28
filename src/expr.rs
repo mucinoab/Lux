@@ -131,8 +131,8 @@ impl Display for Value {
 
 pub fn _print_ast(expr: &Expr) -> String {
     match expr {
-        Expr::Binary(lhs, op, rhs) => _parenthesize(&format!("{}", op), &[lhs, rhs]),
-        Expr::Unary(op, rhs) => _parenthesize(&format!("{}", op), &[rhs]),
+        Expr::Binary(lhs, op, rhs) => _parenthesize(&op.to_string(), &[lhs, rhs]),
+        Expr::Unary(op, rhs) => _parenthesize(&op.to_string(), &[rhs]),
         Expr::Literal(value) => match value {
             Value::String(v) => v.to_owned(),
             Value::Number(v) => v.to_string(),
@@ -145,7 +145,7 @@ pub fn _print_ast(expr: &Expr) -> String {
 }
 
 fn _parenthesize(name: &str, exprs: &[&Expr]) -> String {
-    let mut result = format!("({}", name);
+    let mut result = name.to_string();
 
     for expr in exprs {
         result.push_str(&_print_ast(expr));

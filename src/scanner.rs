@@ -135,7 +135,7 @@ impl<'s> Scanner<'s> {
                         self.identifier();
                         return Ok(());
                     } else {
-                        return Err(CompileError::Scannner(
+                        return Err(CompileError::Scanner(
                             self.start,
                             self.current,
                             "Unexpected char",
@@ -197,7 +197,7 @@ impl<'s> Scanner<'s> {
         }
 
         if self.peek().is_none() {
-            return Err(CompileError::Scannner(
+            return Err(CompileError::Scanner(
                 self.start,
                 self.current,
                 "Unterminated string",
@@ -241,7 +241,7 @@ impl<'s> Scanner<'s> {
 
                 Ok(())
             }
-            Err(_) => Err(CompileError::Scannner(
+            Err(_) => Err(CompileError::Scanner(
                 self.start,
                 self.current,
                 "Not a number",
