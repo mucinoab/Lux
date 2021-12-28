@@ -240,24 +240,27 @@ impl Parser {
 
     fn statement(&mut self) -> Result<Statement, CompileError> {
         // TODO refactor to avoid repetitive code
-        if self.matches(&[TokenType::Print]) {
-            let value = self.expression()?;
-            self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
-
-            Ok(Statement::Print(*value))
-        } else if self.matches(&[TokenType::While]) {
-            let (condition, body) = self.while_statement()?;
-            Ok(Statement::While(*condition, Box::new(body)))
-        } else if self.matches(&[TokenType::LeftBrace]) {
-            Ok(Statement::Block(self.block()?))
-        } else if self.matches(&[TokenType::If]) {
-            Ok(self.if_statement()?)
-        } else {
-            let value = self.expression()?;
-            self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
-
-            Ok(Statement::Expresion(*value))
+        if self.matches(&[TokenType::For]) {
+            return self.for_statement();
         }
+
+        if self.matches(&[TokenType::If]) {
+            return self.if_statement();
+        }
+
+        if self.matches(&[TokenType::Print]) {
+            return self.print_statement();
+        }
+
+        if self.matches(&[TokenType::While]) {
+            return self.while_statement();
+        }
+
+        if self.matches(&[TokenType::LeftBrace]) {
+            return Ok(Statement::Block(self.block()?));
+        }
+
+        self.expression_statement()
     }
 
     fn declaration(&mut self) -> Result<Statement, CompileError> {
@@ -325,6 +328,13 @@ impl Parser {
         Ok(statements)
     }
 
+    fn print_statement(&mut self) -> Result<Statement, CompileError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+
+        Ok(Statement::Print(*value))
+    }
+
     fn if_statement(&mut self) -> Result<Statement, CompileError> {
         self.consume(TokenType::LeftParen, "Expect '(' after 'if'.")?;
         let condition = self.expression()?;
@@ -340,11 +350,62 @@ impl Parser {
         Ok(Statement::If(*condition, then_branch, else_branch))
     }
 
-    fn while_statement(&mut self) -> Result<(BExpr, Statement), CompileError> {
+    fn while_statement(&mut self) -> Result<Statement, CompileError> {
         self.consume(TokenType::LeftParen, "Expect '(' after 'while'.")?;
         let condition = self.expression()?;
         self.consume(TokenType::RightParen, "Expect ')' after if condition")?;
 
-        Ok((condition, self.statement()?))
+        Ok(Statement::While(*condition, Box::new(self.statement()?)))
+    }
+
+    fn for_statement(&mut self) -> Result<Statement, CompileError> {
+        self.consume(TokenType::LeftParen, "Expect '(' after 'for'.")?;
+
+        let init = if self.matches(&[TokenType::Semicolon]) {
+            None
+        } else if self.matches(&[TokenType::Var]) {
+            Some(self.var_declaration()?)
+        } else {
+            Some(self.expression_statement()?)
+        };
+
+        let condition = if !self.matches(&[TokenType::Semicolon]) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(TokenType::Semicolon, "Expect ';' after loop condition.")?;
+
+        let increment = if !self.matches(&[TokenType::RightParen]) {
+            Some(self.expression()?)
+        } else {
+            None
+        };
+        self.consume(TokenType::RightParen, "Expect ')' after loop clauses.")?;
+
+        // Desugaring: For -> While
+        let mut body = self.statement()?;
+
+        if let Some(increment) = increment {
+            body = Statement::Block(vec![body, Statement::Expresion(*increment)]);
+        }
+
+        body = Statement::While(
+            *condition.unwrap_or_else(|| Box::new(Expr::Literal(Value::Boolean(true)))),
+            Box::new(body),
+        );
+
+        if let Some(init) = init {
+            body = Statement::Block(vec![init, body]);
+        }
+
+        Ok(body)
+    }
+
+    fn expression_statement(&mut self) -> Result<Statement, CompileError> {
+        let value = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+
+        Ok(Statement::Expresion(*value))
     }
 }

@@ -22,9 +22,9 @@ fn main() -> Result<(), Error> {
     let args: Vec<_> = env::args().collect();
 
     match args.len().cmp(&2) {
-        Ordering::Greater => todo!(),
         Ordering::Less => run_prompt()?,
         Ordering::Equal => run_file(&args[1])?,
+        Ordering::Greater => todo!(),
     }
 
     Ok(())
