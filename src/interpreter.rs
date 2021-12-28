@@ -6,8 +6,6 @@ use crate::{
     token::TokenType,
 };
 
-use std::mem::replace;
-
 #[derive(Default, Clone)]
 pub struct Interpreter {
     environment: Environment,
@@ -87,10 +85,7 @@ impl Interpreter {
                     let value = self.evaluate(expr)?;
                     self.environment.define(token, value)
                 }
-                Statement::Block(statements) => self.execute_block(
-                    statements,
-                    Environment::new_with_enclosing(self.environment.clone()),
-                )?,
+                Statement::Block(statements) => self.execute_block(statements)?,
                 Statement::If(condition, then_branch, maybe_else_branch) => {
                     if self.evaluate(condition)?.is_truthy() {
                         self.interpret(&[*then_branch.clone()])?;
@@ -123,14 +118,10 @@ impl Interpreter {
         Ok(())
     }
 
-    fn execute_block(
-        &mut self,
-        statements: &[Statement],
-        env: Environment,
-    ) -> Result<(), CompileError> {
-        let previous = replace(&mut self.environment, env);
+    fn execute_block(&mut self, statements: &[Statement]) -> Result<(), CompileError> {
+        self.environment.push_scope();
         self.interpret(statements)?;
-        self.environment = previous;
+        self.environment.pop_scope();
 
         Ok(())
     }

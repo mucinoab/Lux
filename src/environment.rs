@@ -10,10 +10,20 @@ pub struct Environment {
 }
 
 impl Environment {
-    pub fn new_with_enclosing(env: Environment) -> Self {
-        Self {
+    pub fn push_scope(&mut self) {
+        let old_self = std::mem::take(self);
+
+        *self = Self {
             values: HashMap::new(),
-            enclosing: Some(Box::new(env)),
+            enclosing: Some(Box::new(old_self)),
+        };
+    }
+
+    pub fn pop_scope(&mut self) {
+        if let Some(e) = self.enclosing.take() {
+            *self = *e;
+        } else {
+            unreachable!("`self.pop_scope` should be called only after calling `self.push_scope`");
         }
     }
 
