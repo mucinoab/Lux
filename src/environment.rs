@@ -10,8 +10,12 @@ pub struct Environment {
 }
 
 impl Environment {
-    pub fn push_scope(&mut self) {
-        let old_self = std::mem::take(self);
+    pub fn push_scope(&mut self, env: Option<Environment>) {
+        let old_self = if let Some(e) = env {
+            e
+        } else {
+            std::mem::take(self)
+        };
 
         *self = Self {
             values: HashMap::new(),
@@ -43,9 +47,8 @@ impl Environment {
         }
 
         Err(CompileError::Interpreter(
-            name.place.0,
-            name.place.1,
-            "Undefined variable", // TODO put the name of the variable not found
+            name.place,
+            format!("Undefined variable: {}.", name.lexeme),
         ))
     }
 
@@ -60,9 +63,8 @@ impl Environment {
         }
 
         Err(CompileError::Interpreter(
-            name.place.0,
-            name.place.1,
-            "Undefined variable", // TODO put the name of the variable not found
+            name.place,
+            format!("Undefined variable or function: {}.", name.lexeme),
         ))
     }
 }

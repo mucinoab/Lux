@@ -10,9 +10,9 @@ use codespan_reporting::{
 
 #[derive(Debug)]
 pub enum CompileError {
-    Parser(usize, usize, &'static str),
-    Scanner(usize, usize, &'static str),
-    Interpreter(usize, usize, &'static str),
+    Parser((usize, usize), String),
+    Scanner((usize, usize), String),
+    Interpreter((usize, usize), String),
 }
 
 pub fn error(file_name: &str, source: &str, errors: &[CompileError]) {
@@ -21,17 +21,17 @@ pub fn error(file_name: &str, source: &str, errors: &[CompileError]) {
 
     for e in errors {
         let diagnostic = match e {
-            CompileError::Scanner(l, r, msg) => Diagnostic::error()
+            CompileError::Scanner(span, msg) => Diagnostic::error()
                 .with_message(format!("Error while scanning: {msg}"))
-                .with_labels(vec![Label::primary((), *l..*r)]),
+                .with_labels(vec![Label::primary((), span.0..span.1)]),
 
-            CompileError::Parser(l, r, msg) => Diagnostic::error()
+            CompileError::Parser(span, msg) => Diagnostic::error()
                 .with_message(format!("Error while parsing: {msg}"))
-                .with_labels(vec![Label::primary((), *l..*r).with_message("here")]),
+                .with_labels(vec![Label::primary((), span.0..span.1).with_message("here")]),
 
-            CompileError::Interpreter(l, r, msg) => Diagnostic::error()
+            CompileError::Interpreter(span, msg) => Diagnostic::error()
                 .with_message(format!("Runtime error: {msg}"))
-                .with_labels(vec![Label::primary((), *l..*r)]),
+                .with_labels(vec![Label::primary((), span.0..span.1)]),
         };
 
         term::emit(&mut writer.lock(), &Config::default(), &file, &diagnostic).unwrap();

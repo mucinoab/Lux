@@ -52,5 +52,22 @@ print a;
 print b;
 ```
 
+### Functions
+```c#
+// User defined
+fn count(n) {
+  if (n > 1) {
+    count(n - 1);
+  }
+
+  print n;
+}
+
+count(100);
+
+// Baked into the language
+clock(); // milliseconds since the unix epoch
+```
+
 ### REPL mode
 ### Nice Error Messages

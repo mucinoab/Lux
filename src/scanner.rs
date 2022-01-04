@@ -136,9 +136,8 @@ impl<'s> Scanner<'s> {
                         return Ok(());
                     } else {
                         return Err(CompileError::Scanner(
-                            self.start,
-                            self.current,
-                            "Unexpected char",
+                            (self.start, self.current),
+                            format!("Unexpected char: {}", c),
                         ));
                     }
                 }
@@ -198,9 +197,8 @@ impl<'s> Scanner<'s> {
 
         if self.peek().is_none() {
             return Err(CompileError::Scanner(
-                self.start,
-                self.current,
-                "Unterminated string",
+                (self.start, self.current),
+                "Unterminated string".into(),
             ));
         }
 
@@ -242,9 +240,8 @@ impl<'s> Scanner<'s> {
                 Ok(())
             }
             Err(_) => Err(CompileError::Scanner(
-                self.start,
-                self.current,
-                "Not a number",
+                (self.start, self.current),
+                "Not a number".into(),
             )),
         }
     }

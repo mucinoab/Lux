@@ -1,11 +1,11 @@
 use crate::{
     errors::CompileError,
-    expr::{BExpr, Expr, Value},
+    expr::{Expr, Value},
     statements::Statement,
     token::{Token, TokenType},
 };
 
-pub type CompResult = Result<BExpr, CompileError>;
+pub type CompResult = Result<Box<Expr>, CompileError>;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -157,7 +157,21 @@ impl Parser {
             )));
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> CompResult {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.matches(&[TokenType::LeftParen]) {
+                expr = self.finish_call(expr)?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
     }
 
     fn primary(&mut self) -> CompResult {
@@ -192,9 +206,8 @@ impl Parser {
             TokenType::Number(n) => Box::new(Expr::Literal(Value::Number(*n))),
             _ => {
                 return Err(CompileError::Parser(
-                    tkn.place.0,
-                    tkn.place.1,
-                    "Unexpected token while parsing",
+                    tkn.place,
+                    "Unexpected token while parsing".into(),
                 ));
             }
         };
@@ -203,17 +216,18 @@ impl Parser {
         Ok(expr)
     }
 
-    fn consume(&mut self, tkn: TokenType, error_msg: &'static str) -> Result<&Token, CompileError> {
+    fn consume(&mut self, tkn: TokenType, error_msg: &str) -> Result<&Token, CompileError> {
         if self.check(&tkn) {
             Ok(self.advance())
         } else {
             //https://craftinginterpreters.com/parsing-expressions.html#entering-panic-mode
             let tkn = self.peek();
-            Err(CompileError::Parser(tkn.place.0, tkn.place.1, error_msg))
+            Err(CompileError::Parser(tkn.place, error_msg.into()))
         }
     }
 
-    fn synchronize(&mut self) {
+    // TODO synchronization in errors
+    fn _synchronize(&mut self) {
         // https://craftinginterpreters.com/parsing-expressions.html#entering-panic-mode
         self.advance();
 
@@ -240,6 +254,7 @@ impl Parser {
 
     fn statement(&mut self) -> Result<Statement, CompileError> {
         // TODO refactor to avoid repetitive code
+        // TODO Require explicit blocks { } for [if, loops, functions]
         if self.matches(&[TokenType::For]) {
             return self.for_statement();
         }
@@ -264,17 +279,49 @@ impl Parser {
     }
 
     fn declaration(&mut self) -> Result<Statement, CompileError> {
-        if self.matches(&[TokenType::Var]) {
-            return match self.var_declaration() {
-                Ok(s) => Ok(s),
-                Err(_) => {
-                    self.synchronize();
-                    Err(CompileError::Parser(0, 0, "TODO"))
-                }
-            };
+        if self.matches(&[TokenType::Fn]) {
+            self.function("function")
+        } else if self.matches(&[TokenType::Var]) {
+            self.var_declaration()
+        } else {
+            self.statement()
+        }
+    }
+
+    fn function(&mut self, kind: &'static str) -> Result<Statement, CompileError> {
+        let name = self
+            .consume(TokenType::Identifier, &format!("Expect {} name", kind))?
+            .clone();
+
+        self.consume(
+            TokenType::LeftParen,
+            &format!("Expect '(' after {}  name.", kind),
+        )?;
+
+        let mut parameters = Vec::new();
+
+        if !self.check(&TokenType::RightParen) {
+            parameters.push(
+                self.consume(TokenType::Identifier, "Expect parameter name.")?
+                    .clone(),
+            );
+
+            while self.matches(&[TokenType::Comma]) {
+                // TODO add maximum limit of parameters
+                parameters.push(
+                    self.consume(TokenType::Identifier, "Expect parameter name.")?
+                        .clone(),
+                );
+            }
         }
 
-        self.statement()
+        self.consume(TokenType::RightParen, "Expect ')' after parameters.")?;
+        self.consume(
+            TokenType::LeftBrace,
+            &format!("Expect '{{' before {} body.", kind),
+        )?;
+
+        Ok(Statement::Function(name, parameters, self.block()?))
     }
 
     fn var_declaration(&mut self) -> Result<Statement, CompileError> {
@@ -293,7 +340,7 @@ impl Parser {
         Ok(Statement::Var(name, value))
     }
 
-    fn assignment(&mut self) -> Result<BExpr, CompileError> {
+    fn assignment(&mut self) -> Result<Box<Expr>, CompileError> {
         let expr = self.or()?;
 
         if self.matches(&[TokenType::Equal]) {
@@ -306,10 +353,8 @@ impl Parser {
             let equals = self.previous();
 
             return Err(CompileError::Parser(
-                // TODO ?
-                equals.place.0,
-                equals.place.1,
-                "Invalid assignment target",
+                equals.place,
+                "Invalid assignment target".into(),
             ));
         }
 
@@ -407,5 +452,24 @@ impl Parser {
         self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
 
         Ok(Statement::Expresion(*value))
+    }
+
+    fn finish_call(&mut self, callee: Box<Expr>) -> CompResult {
+        let mut arguments = Vec::new();
+
+        if !self.check(&TokenType::RightParen) {
+            arguments.push(*self.expression()?);
+
+            while self.matches(&[TokenType::Comma]) {
+                // TODO add maximum limit of arguments
+                arguments.push(*self.expression()?);
+            }
+        }
+
+        let paren = self
+            .consume(TokenType::RightParen, "Expect ')' after arguments.")?
+            .clone();
+
+        Ok(Box::new(Expr::Call(callee, paren, arguments)))
     }
 }
