@@ -8,13 +8,11 @@ use std::{str::Chars, str::FromStr};
 use peekmore::{PeekMore, PeekMoreIterator};
 
 pub struct Scanner<'s> {
-    source_raw: &'s str,
+    pub source_raw: &'s str,
     source: PeekMoreIterator<Chars<'s>>,
     tokens: Vec<Token>,
     start: usize,
     current: usize,
-    line: usize,
-    column: usize,
 }
 
 impl<'s> Scanner<'s> {
@@ -25,14 +23,11 @@ impl<'s> Scanner<'s> {
             tokens: Vec::new(),
             start: 0,
             current: 0,
-            line: 1,
-            column: 1,
         }
     }
 
     pub fn advance(&mut self) -> Option<char> {
         self.current += 1;
-        self.column += 1;
 
         self.source.next()
     }
@@ -114,9 +109,6 @@ impl<'s> Scanner<'s> {
                 }
 
                 '\n' => {
-                    self.line += 1;
-                    self.column = 1; // reset column
-
                     return Ok(());
                 }
 
@@ -163,8 +155,6 @@ impl<'s> Scanner<'s> {
             TokenType::Eof,
             String::new(),
             (self.start, self.current),
-            self.line,
-            self.column,
         ));
 
         if errors.is_empty() {
@@ -176,22 +166,12 @@ impl<'s> Scanner<'s> {
 
     fn add_token(&mut self, token: TokenType) {
         let text = self.source_raw[self.start..self.current].into();
-        self.tokens.push(Token::new(
-            token,
-            text,
-            (self.start, self.current),
-            self.line,
-            self.column,
-        ));
+        self.tokens
+            .push(Token::new(token, text, (self.start, self.current)));
     }
 
     fn string(&mut self) -> Result<(), CompileError> {
         while self.peek().is_some() && self.peek() != Some(&'"') {
-            if self.peek() == Some(&'\n') {
-                self.line += 1;
-                self.column = 0;
-            }
-
             self.advance();
         }
 

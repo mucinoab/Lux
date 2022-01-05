@@ -24,8 +24,6 @@ impl Interpreter {
                 _type: TokenType::Fn,
                 lexeme: "clock".into(),
                 place: (0, 0),
-                line: 0,
-                column: 0,
             },
             Value::Callable(Function::Native {
                 arity: 0,
