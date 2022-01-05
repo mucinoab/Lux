@@ -1,5 +1,3 @@
-use core::fmt;
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     /// Single character tokens
@@ -75,24 +73,5 @@ impl Token {
             line,
             column,
         }
-    }
-}
-
-impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let token = match self._type {
-            TokenType::Minus => '-',
-            TokenType::Plus => '+',
-            TokenType::Slash => '/',
-            TokenType::Star => '*',
-            TokenType::Bang => '!',
-            TokenType::Greater => '>',
-            TokenType::GreaterEqual => '≥',
-            TokenType::Less => '<',
-            TokenType::LessEqual => '≤',
-            _ => '�',
-        };
-
-        write!(f, "{}", token)
     }
 }
