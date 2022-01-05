@@ -10,4 +10,5 @@ pub enum Statement {
     If(Expr, Box<Statement>, Option<Box<Statement>>),
     While(Expr, Box<Statement>),
     Function(Token, Vec<Token>, Vec<Statement>),
+    Return(Token, Expr),
 }

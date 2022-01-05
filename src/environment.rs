@@ -1,33 +1,19 @@
 use crate::{errors::CompileError, expr::Value, token::Token};
 
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(Default, Clone, Debug)]
 pub struct Environment {
     // TODO try making this a <&str, Value>
     values: HashMap<String, Value>,
-    enclosing: Option<Box<Environment>>,
+    enclosing: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
-    pub fn push_scope(&mut self, env: Option<Environment>) {
-        let old_self = if let Some(e) = env {
-            e
-        } else {
-            std::mem::take(self)
-        };
-
-        *self = Self {
+    pub fn from(enclosing: &Rc<RefCell<Environment>>) -> Self {
+        Self {
+            enclosing: Some(enclosing.clone()),
             values: HashMap::new(),
-            enclosing: Some(Box::new(old_self)),
-        };
-    }
-
-    pub fn pop_scope(&mut self) {
-        if let Some(e) = self.enclosing.take() {
-            *self = *e;
-        } else {
-            unreachable!("`self.pop_scope` should be called only after calling `self.push_scope`");
         }
     }
 
@@ -43,7 +29,7 @@ impl Environment {
 
         // Recurse down the scopes
         if let Some(enclosing) = self.enclosing.as_mut() {
-            return enclosing.assign(name, value);
+            return enclosing.borrow_mut().assign(name, value);
         }
 
         Err(CompileError::Interpreter(
@@ -59,7 +45,7 @@ impl Environment {
 
         // Recurse down the scopes
         if let Some(enclosing) = &self.enclosing {
-            return enclosing.get(name);
+            return enclosing.borrow_mut().get(name);
         }
 
         Err(CompileError::Interpreter(

@@ -11,15 +11,15 @@ use std::{cell::RefCell, rc::Rc, time::SystemTime};
 pub struct Interpreter {
     /// A pointer to the outermost global environment
     environment: Rc<RefCell<Environment>>,
-    globals: Rc<RefCell<Environment>>,
+    _globals: Rc<RefCell<Environment>>,
 }
 
 impl Interpreter {
     pub fn new(env: Environment) -> Self {
         let environment = Rc::new(RefCell::new(env));
-        let globals = environment.clone();
+        let _globals = environment.clone();
 
-        globals.borrow_mut().define(
+        _globals.borrow_mut().define(
             &Token {
                 _type: TokenType::Fn,
                 lexeme: "clock".into(),
@@ -41,7 +41,7 @@ impl Interpreter {
         );
 
         Self {
-            globals,
+            _globals,
             environment,
         }
     }
@@ -83,14 +83,14 @@ impl Interpreter {
                     TokenType::Less => Value::Boolean(lhs < rhs),
                     TokenType::LessEqual => Value::Boolean(lhs <= rhs),
 
-                    TokenType::Equal => Value::Boolean(lhs == rhs),
+                    TokenType::EqualEqual => Value::Boolean(lhs == rhs),
                     TokenType::BangEqual => Value::Boolean(lhs != rhs),
 
                     _ => {
                         return Err(CompileError::Interpreter(
                             op.place,
                             "Unexpected operator".into(),
-                        ))
+                        ));
                     }
                 }
             }
@@ -130,19 +130,25 @@ impl Interpreter {
                             body(&arguments)
                         }
                         Function::User {
-                            name: _,
                             params,
                             body,
                             closure,
+                            ..
                         } => {
                             check_arity(paren, params.len(), arguments.len())?;
+                            let env = Rc::new(RefCell::new(Environment::from(&closure)));
 
                             for (param, argument) in params.iter().zip(arguments.drain(..)) {
-                                self.environment.borrow_mut().define(param, argument);
+                                env.borrow_mut().define(param, argument);
                             }
 
-                            self.execute_block(&body, Some(closure.take()))?;
-                            Value::Nil
+                            match self.execute_block(&body, env) {
+                                Ok(_) => Value::Nil,
+                                Err(CompileError::Return(value)) => value,
+                                Err(other) => {
+                                    return Err(other);
+                                }
+                            }
                         }
                     }
                 } else {
@@ -166,7 +172,10 @@ impl Interpreter {
                     let value = self.evaluate(expr)?;
                     self.environment.borrow_mut().define(token, value)
                 }
-                Statement::Block(statements) => self.execute_block(statements, None)?,
+                Statement::Block(statements) => self.execute_block(
+                    statements,
+                    Rc::new(RefCell::new(Environment::from(&self.environment))),
+                )?,
                 Statement::If(condition, then_branch, maybe_else_branch) => {
                     if self.evaluate(condition)?.is_truthy() {
                         self.interpret(&[*then_branch.clone()])?;
@@ -184,10 +193,19 @@ impl Interpreter {
                         name: name.clone(),
                         params: params.clone(),
                         body: body.clone(),
-                        closure: self.globals.clone(), // TODO: Point to the outer most environment
+                        closure: self.environment.clone(),
                     });
 
                     self.environment.borrow_mut().define(name, function);
+                }
+                Statement::Return(_, value) => {
+                    let value = if Expr::Literal(Value::Nil) == *value {
+                        Value::Nil
+                    } else {
+                        self.evaluate(value)?
+                    };
+
+                    return Err(CompileError::Return(value));
                 }
             }
         }
@@ -212,13 +230,14 @@ impl Interpreter {
     fn execute_block(
         &mut self,
         statements: &[Statement],
-        env: Option<Environment>,
+        environment: Rc<RefCell<Environment>>,
     ) -> Result<(), CompileError> {
-        self.environment.borrow_mut().push_scope(env);
-        self.interpret(statements)?;
-        self.environment.borrow_mut().pop_scope();
+        let previous = self.environment.clone();
+        self.environment = environment;
+        let result = self.interpret(statements);
+        self.environment = previous;
 
-        Ok(())
+        result
     }
 }
 

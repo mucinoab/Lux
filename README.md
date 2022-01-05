@@ -33,6 +33,34 @@ while (iter < 10) {
 
 ```
 
+### Functions
+```c#
+// User defined functions
+fn fibonacci(n) {
+  if (n <= 1) { return n; }
+  return fibonacci(n - 2) + fibonacci(n - 1);
+}
+
+// Nested functions
+fn makeCounter() {
+  var i = 0;
+  fn count() {
+    i = i + 1;
+    print i;
+  }
+
+  return count;
+}
+
+var counter = makeCounter();
+counter(); // 1
+counter(); // 2
+counter(); // 3
+
+// Native functions (baked into the language)
+clock(); // milliseconds since the unix epoch
+```
+
 ### Variable Scopes
 ```c#
 var a = "global a";
@@ -50,23 +78,6 @@ var b = "global b";
 }
 print a;
 print b;
-```
-
-### Functions
-```c#
-// User defined
-fn count(n) {
-  if (n > 1) {
-    count(n - 1);
-  }
-
-  print n;
-}
-
-count(100);
-
-// Baked into the language
-clock(); // milliseconds since the unix epoch
 ```
 
 ### REPL mode

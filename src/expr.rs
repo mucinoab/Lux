@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
     Binary(Box<Expr>, Token, Box<Expr>),
     Logical(Box<Expr>, Token, Box<Expr>),
@@ -161,28 +161,12 @@ impl Debug for Function {
 
 impl PartialOrd for Function {
     fn partial_cmp(&self, _o: &Self) -> Option<std::cmp::Ordering> {
-        todo!()
-    }
-
-    fn lt(&self, _o: &Self) -> bool {
-        todo!()
-    }
-
-    fn le(&self, _o: &Self) -> bool {
-        todo!()
-    }
-
-    fn gt(&self, _o: &Self) -> bool {
-        todo!()
-    }
-
-    fn ge(&self, _o: &Self) -> bool {
-        todo!()
+        None
     }
 }
 
 impl PartialEq for Function {
     fn eq(&self, _o: &Self) -> bool {
-        todo!()
+        false
     }
 }

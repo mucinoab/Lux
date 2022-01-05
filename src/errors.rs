@@ -1,3 +1,5 @@
+use crate::expr::Value;
+
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
     files::SimpleFile,
@@ -13,6 +15,7 @@ pub enum CompileError {
     Parser((usize, usize), String),
     Scanner((usize, usize), String),
     Interpreter((usize, usize), String),
+    Return(Value),
 }
 
 pub fn error(file_name: &str, source: &str, errors: &[CompileError]) {
@@ -22,16 +25,21 @@ pub fn error(file_name: &str, source: &str, errors: &[CompileError]) {
     for e in errors {
         let diagnostic = match e {
             CompileError::Scanner(span, msg) => Diagnostic::error()
-                .with_message(format!("Error while scanning: {msg}"))
+                .with_message(format!("Error while scanning: {}", msg))
                 .with_labels(vec![Label::primary((), span.0..span.1)]),
 
             CompileError::Parser(span, msg) => Diagnostic::error()
-                .with_message(format!("Error while parsing: {msg}"))
+                .with_message(format!("Error while parsing: {}", msg))
                 .with_labels(vec![Label::primary((), span.0..span.1).with_message("here")]),
 
             CompileError::Interpreter(span, msg) => Diagnostic::error()
-                .with_message(format!("Runtime error: {msg}"))
+                .with_message(format!("Runtime error: {}", msg))
                 .with_labels(vec![Label::primary((), span.0..span.1)]),
+
+            CompileError::Return(value) => {
+                println!("{}", value);
+                std::process::exit(0);
+            }
         };
 
         term::emit(&mut writer.lock(), &Config::default(), &file, &diagnostic).unwrap();

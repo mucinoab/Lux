@@ -267,6 +267,10 @@ impl Parser {
             return self.print_statement();
         }
 
+        if self.matches(&[TokenType::Return]) {
+            return self.return_statement();
+        }
+
         if self.matches(&[TokenType::While]) {
             return self.while_statement();
         }
@@ -452,6 +456,19 @@ impl Parser {
         self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
 
         Ok(Statement::Expresion(*value))
+    }
+
+    fn return_statement(&mut self) -> Result<Statement, CompileError> {
+        let token = self.previous().clone();
+        let value = if self.check(&TokenType::Semicolon) {
+            Expr::Literal(Value::Nil)
+        } else {
+            *self.expression()?
+        };
+
+        self.consume(TokenType::Semicolon, "Expect ';' after return value.")?;
+
+        Ok(Statement::Return(token, value))
     }
 
     fn finish_call(&mut self, callee: Box<Expr>) -> CompResult {
