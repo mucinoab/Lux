@@ -1,6 +1,8 @@
 # Lux
 A toy interpreter of `Lux` (based on [Lox](https://craftinginterpreters.com/the-lox-language.html/)), a fully featured dynamically typed language. 
 
+You can try the REPL [here.](https://mucinoab.github.io/lux/lux_demo.html)
+
 # Features
 
 ### Control Flow
